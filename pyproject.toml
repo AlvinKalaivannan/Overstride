@@ -20,7 +20,8 @@ cv = [
     "mediapipe",
     "ultralytics",
     "opencv-python",
-    "supervision",
+    "supervision<0.30",  # ByteTrack (used as-is) is slated for removal in 0.30
+    "ezc3d",
 ]
 dev = [
     "pytest",
