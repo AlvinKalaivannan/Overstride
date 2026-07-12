@@ -75,10 +75,12 @@ def torso_size(gt_frame: dict[str, np.ndarray]) -> float:
     return float(np.linalg.norm(gt_frame["left_shoulder"] - gt_frame["right_hip"]))
 
 
-def build_extractor(name: str):
+def build_extractor(name: str, min_detection_confidence: float | None = None):
     if name == "mediapipe":
         from overstride.pose.extract import MediaPipeExtractor
-        return MediaPipeExtractor()
+        if min_detection_confidence is None:
+            return MediaPipeExtractor()
+        return MediaPipeExtractor(min_detection_confidence=min_detection_confidence)
     if name == "yolo":
         from overstride.pose.extract import YoloPoseExtractor
         return YoloPoseExtractor()
@@ -92,6 +94,8 @@ def main() -> None:
     parser.add_argument("--camera-id", required=True, choices=["left", "mid", "right"])
     parser.add_argument("--extractor", required=True, choices=["mediapipe", "yolo"])
     parser.add_argument("--frame-stride", type=int, default=FRAME_STRIDE)
+    parser.add_argument("--min-detection-confidence", type=float, default=None,
+                         help="mediapipe only; defaults to MediaPipeExtractor's own default")
     args = parser.parse_args()
 
     gt = ground_truth_2d(args.subject_id, args.clip_id, args.camera_id)
@@ -100,7 +104,7 @@ def main() -> None:
     video_path = DATA_DIR / "videos" / args.subject_id / f"{args.subject_id}-{args.clip_id}-{args.camera_id}.mkv"
     cap = cv2.VideoCapture(str(video_path))
 
-    extractor = build_extractor(args.extractor)
+    extractor = build_extractor(args.extractor, args.min_detection_confidence)
 
     per_joint_errors: dict[str, list[float]] = {j: [] for j in COMMON_JOINTS}
     per_joint_correct: dict[str, list[bool]] = {j: [] for j in COMMON_JOINTS}
