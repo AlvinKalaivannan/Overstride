@@ -46,9 +46,9 @@ _YOLO_COCO_INDEX = {
 
 _POSE_LANDMARKER_MODEL_URL = (
     "https://storage.googleapis.com/mediapipe-models/pose_landmarker/"
-    "pose_landmarker_lite/float16/1/pose_landmarker_lite.task"
+    "pose_landmarker_full/float16/1/pose_landmarker_full.task"
 )
-_DEFAULT_MODEL_PATH = Path(__file__).resolve().parent.parent.parent.parent / "models" / "pose_landmarker_lite.task"
+_DEFAULT_MODEL_PATH = Path(__file__).resolve().parent.parent.parent.parent / "models" / "pose_landmarker_full.task"
 
 
 def _ensure_pose_landmarker_model(model_path: Path) -> Path:
@@ -59,6 +59,11 @@ def _ensure_pose_landmarker_model(model_path: Path) -> Path:
     MediaPipe Solutions has been removed"), so extraction goes through the
     newer Tasks API instead, which requires this model file separately --
     it isn't bundled in the mediapipe pip package.
+
+    Uses the "full" variant, not "lite": the old `mp.solutions.pose.Pose()`
+    defaulted to `model_complexity=1` ("full"-equivalent), and this pipeline
+    runs offline on submitted footage rather than real-time on mobile, so
+    there's no reason to trade the lite model's detection recall for speed.
     """
     if model_path.exists():
         return model_path
