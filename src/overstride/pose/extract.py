@@ -81,16 +81,24 @@ class MediaPipeExtractor:
     every call. On ASPset-510 footage (subject occupies ~2-3% of frame width in
     the source 4K video -- a small, distant figure, not the close-up framing
     BlazePose's defaults assume) this alone raised detection from 8.3% to 29.2%
-    at the default confidence threshold; dropping min_pose_detection_confidence
-    to 0.1 (measured via scripts/_colab_diag_detection.py) got both modes to
-    100%. The lower threshold is the dominant fix -- VIDEO mode is kept because
-    it's the correct API for this access pattern regardless.
+    at the default 0.5 confidence threshold.
+
+    min_detection_confidence defaults to 0.3, not the model's own 0.5 default and
+    not the even-lower 0.1 tried initially. Swept across 3 ASPset-510 clips
+    (scripts/validate_pose_accuracy_batch.py --min-detection-confidence 0.1 0.2
+    0.3 0.5): 0.5 is unstable -- 93-100% detection on two clips but 0% on a third,
+    since the fixed camera framing leaves no margin above threshold on harder
+    motion. 0.1 is uniformly worse than 0.2/0.3 on both detection and PCK,
+    because min_tracking_confidence (kept equal to the detection threshold) lets
+    VIDEO mode keep tracking a drifted ROI instead of forcing re-detection. 0.3
+    had the best detection rate (98.3%), lowest pixel error, and best PCK@0.2 of
+    all four values tested.
     """
 
     def __init__(
         self,
         model_path: Path | str = _DEFAULT_MODEL_PATH,
-        min_detection_confidence: float = 0.1,
+        min_detection_confidence: float = 0.3,
     ):
         import mediapipe as mp
         from mediapipe.tasks.python import vision
