@@ -11,6 +11,9 @@ another, so they're left out rather than approximated.
 
 from __future__ import annotations
 
+import urllib.request
+from pathlib import Path
+
 COMMON_JOINTS = [
     "left_shoulder", "right_shoulder",
     "left_elbow", "right_elbow",
@@ -41,30 +44,63 @@ _YOLO_COCO_INDEX = {
 }
 
 
+_POSE_LANDMARKER_MODEL_URL = (
+    "https://storage.googleapis.com/mediapipe-models/pose_landmarker/"
+    "pose_landmarker_lite/float16/1/pose_landmarker_lite.task"
+)
+_DEFAULT_MODEL_PATH = Path(__file__).resolve().parent.parent.parent.parent / "models" / "pose_landmarker_lite.task"
+
+
+def _ensure_pose_landmarker_model(model_path: Path) -> Path:
+    """Download the PoseLandmarker task bundle if it isn't already cached.
+
+    MediaPipe's legacy `mp.solutions` API was removed upstream (not just
+    deprecated -- confirmed via google-ai-edge/mediapipe#6200: "support for
+    MediaPipe Solutions has been removed"), so extraction goes through the
+    newer Tasks API instead, which requires this model file separately --
+    it isn't bundled in the mediapipe pip package.
+    """
+    if model_path.exists():
+        return model_path
+    model_path.parent.mkdir(parents=True, exist_ok=True)
+    urllib.request.urlretrieve(_POSE_LANDMARKER_MODEL_URL, model_path)
+    return model_path
+
+
 class MediaPipeExtractor:
-    """Single-person pose extraction via MediaPipe Pose."""
+    """Single-person pose extraction via MediaPipe's PoseLandmarker (Tasks API)."""
 
-    def __init__(self, **kwargs):
+    def __init__(self, model_path: Path | str = _DEFAULT_MODEL_PATH):
         import mediapipe as mp
+        from mediapipe.tasks.python import vision
+        from mediapipe.tasks.python.core.base_options import BaseOptions
 
-        self._pose = mp.solutions.pose.Pose(static_image_mode=True, **kwargs)
+        resolved_path = _ensure_pose_landmarker_model(Path(model_path))
+        options = vision.PoseLandmarkerOptions(
+            base_options=BaseOptions(model_asset_path=str(resolved_path)),
+            running_mode=vision.RunningMode.IMAGE,
+            num_poses=1,
+        )
+        self._mp = mp
+        self._detector = vision.PoseLandmarker.create_from_options(options)
 
     def extract(self, frame_bgr) -> dict[str, tuple[float, float]] | None:
         import cv2
 
         height, width = frame_bgr.shape[:2]
         rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
-        result = self._pose.process(rgb)
+        mp_image = self._mp.Image(image_format=self._mp.ImageFormat.SRGB, data=rgb)
+        result = self._detector.detect(mp_image)
         if not result.pose_landmarks:
             return None
-        landmarks = result.pose_landmarks.landmark
+        landmarks = result.pose_landmarks[0]
         return {
             joint: (landmarks[idx].x * width, landmarks[idx].y * height)
             for joint, idx in _MEDIAPIPE_LANDMARK_INDEX.items()
         }
 
     def close(self) -> None:
-        self._pose.close()
+        self._detector.close()
 
 
 class YoloPoseExtractor:
