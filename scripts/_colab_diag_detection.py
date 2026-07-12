@@ -24,9 +24,11 @@ import mediapipe as mp
 from mediapipe.tasks.python import vision
 from mediapipe.tasks.python.core.base_options import BaseOptions
 
+from overstride.pose.extract import _DEFAULT_MODEL_PATH, _ensure_pose_landmarker_model
+
 ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT / "data" / "raw" / "aspset510" / "test"
-MODEL_PATH = ROOT / "models" / "pose_landmarker_full.task"
+MODEL_PATH = _ensure_pose_landmarker_model(_DEFAULT_MODEL_PATH)
 FRAME_STRIDE = 5
 
 
