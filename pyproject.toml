@@ -17,7 +17,7 @@ dependencies = [
 
 [project.optional-dependencies]
 cv = [
-    "mediapipe",
+    "mediapipe<0.10.31",  # 0.10.31+ broke mp.solutions.pose (upstream regression, google-ai-edge/mediapipe#6200 et al.)
     "ultralytics",
     "opencv-python",
     "supervision<0.30",  # ByteTrack (used as-is) is slated for removal in 0.30

@@ -49,7 +49,7 @@ def extract_all(archive_path: Path, data_dir: Path) -> None:
             if not member.isreg():
                 continue
             member.name = str(Path(member.name).relative_to(ARCHIVE_PREFIX))
-            tar.extract(member, data_dir)
+            tar.extract(member, data_dir, filter="data")
 
 
 def extract_subject_videos(archive_path: Path, data_dir: Path, subject_id: str) -> int:
@@ -61,7 +61,7 @@ def extract_subject_videos(archive_path: Path, data_dir: Path, subject_id: str) 
             if not member.isreg() or not member.name.startswith(target_dir):
                 continue
             member.name = str(Path(member.name).relative_to(ARCHIVE_PREFIX))
-            tar.extract(member, data_dir)
+            tar.extract(member, data_dir, filter="data")
             count += 1
     return count
 
