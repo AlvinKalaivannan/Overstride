@@ -51,3 +51,18 @@ def mahalanobis_sq(x: np.ndarray, mean: np.ndarray, cov: np.ndarray) -> np.ndarr
     cov_inv = np.linalg.inv(cov)
     d2 = np.einsum("ij,jk,ik->i", diff, cov_inv, diff)
     return d2 if x.ndim > 1 else d2[0]
+
+
+def feature_contributions(
+    diff: np.ndarray, cov_inv: np.ndarray, feature_names: list[str]
+) -> dict[str, float]:
+    """Exact additive decomposition of D^2 = diff^T @ cov_inv @ diff into
+    per-feature terms diff_i * (cov_inv @ diff)_i, which sum to D^2.
+    Sorted by descending magnitude so the top entry is the "driver".
+
+    Shared by Stage 2 and Stage 3's scoring -- this is generic Mahalanobis
+    decomposition, not specific to either feature space.
+    """
+    terms = diff * (cov_inv @ diff)
+    pairs = sorted(zip(feature_names, terms.tolist()), key=lambda p: abs(p[1]), reverse=True)
+    return dict(pairs)

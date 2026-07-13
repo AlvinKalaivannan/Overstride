@@ -1,6 +1,12 @@
 import numpy as np
+import pytest
 
-from overstride.baseline.mahalanobis import fit_baseline, mahalanobis_sq, shrink_covariance
+from overstride.baseline.mahalanobis import (
+    feature_contributions,
+    fit_baseline,
+    mahalanobis_sq,
+    shrink_covariance,
+)
 
 
 def test_mahalanobis_zero_at_mean():
@@ -51,3 +57,18 @@ def test_fit_baseline_returns_invertible_covariance_for_single_week():
     np.testing.assert_allclose(mean, [1.0, 2.0, 3.0])
     # must be invertible despite n=1 < n_features
     np.linalg.inv(cov)
+
+
+def test_feature_contributions_sum_to_d2():
+    diff = np.array([1.0, 2.0, 3.0])
+    cov_inv = np.linalg.inv(np.eye(3))
+    contributions = feature_contributions(diff, cov_inv, ["a", "b", "c"])
+    assert set(contributions) == {"a", "b", "c"}
+    assert sum(contributions.values()) == pytest.approx(diff @ cov_inv @ diff)
+
+
+def test_feature_contributions_sorted_by_magnitude_descending():
+    diff = np.array([0.1, 5.0, -3.0])
+    cov_inv = np.eye(3)
+    contributions = feature_contributions(diff, cov_inv, ["small", "big", "medium"])
+    assert list(contributions) == ["big", "medium", "small"]

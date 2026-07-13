@@ -14,7 +14,7 @@ from pathlib import Path
 
 import numpy as np
 
-from overstride.baseline.mahalanobis import shrink_covariance
+from overstride.baseline.mahalanobis import feature_contributions, shrink_covariance
 from overstride.baseline.welford import WelfordBaseline
 
 COLD_START_MIN_WEEKS = 8
@@ -54,18 +54,6 @@ def _logistic(z: float) -> float:
     return 1.0 / (1.0 + np.exp(-z))
 
 
-def _feature_contributions(
-    diff: np.ndarray, cov_inv: np.ndarray, feature_columns: list[str]
-) -> dict[str, float]:
-    """Exact additive decomposition of D^2 = diff^T @ cov_inv @ diff into
-    per-feature terms diff_i * (cov_inv @ diff)_i, which sum to D^2.
-    Sorted by descending magnitude so the top entry is the "driver".
-    """
-    terms = diff * (cov_inv @ diff)
-    pairs = sorted(zip(feature_columns, terms.tolist()), key=lambda p: abs(p[1]), reverse=True)
-    return dict(pairs)
-
-
 def process_week(
     baseline: WelfordBaseline,
     features: np.ndarray,
@@ -94,7 +82,7 @@ def process_week(
     diff = features - baseline.mean
     d2 = float(diff @ cov_inv @ diff)
     probability = float(_logistic(model.intercept + model.coef_d2 * d2))
-    contributions = _feature_contributions(diff, cov_inv, model.feature_columns)
+    contributions = feature_contributions(diff, cov_inv, model.feature_columns)
 
     result = ScoreResult(
         status="scored",
