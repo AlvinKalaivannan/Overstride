@@ -1,13 +1,17 @@
-"""Compare our own YOLO-pose detector against a Roboflow-hosted model on
+"""Compare our own YOLO-pose detector against Roboflow-hosted YOLO-World on
 real marathon crowd footage, before committing to either for the marathon-
 footage population-baseline pipeline.
+
+YOLO-World (Tencent AI Lab) is one of Roboflow's own curated foundation
+models -- a real, published open-vocabulary detector, not an unverified
+community Universe upload -- so it's called with a plain-text class prompt
+("person") rather than a project/version ID.
 
 There's no ground truth for marathon crowds (unlike ASPset-510's mocap), so
 this is deliberately qualitative: detection counts/confidence side by side,
 plus annotated frames saved for visual inspection -- not a PCK-style number.
 
-    python scripts/compare_person_detectors.py --video race.mp4 \
-        --num-frames 8 --roboflow-model-id crowdhuman-nur7g/3
+    python scripts/compare_person_detectors.py --video race.mp4 --num-frames 8
 
 Requires ROBOFLOW_API_KEY in the environment and the `cv` + `inference-sdk`
 extras installed (pip install -e ".[cv]").
@@ -54,16 +58,24 @@ def detect_yolo(frame: np.ndarray, model) -> list[tuple[float, float, float, flo
 
 
 def detect_roboflow(
-    frame_path: Path, client, model_id: str
+    frame_path: Path, client, class_names: list[str], model_version: str, confidence: float
 ) -> list[tuple[float, float, float, float, float]]:
-    """Roboflow returns center x/y + width/height; convert to (x1,y1,x2,y2,conf)."""
-    result = client.infer(str(frame_path), model_id=model_id)
-    boxes = []
-    for pred in result.get("predictions", []):
-        cx, cy, w, h = pred["x"], pred["y"], pred["width"], pred["height"]
-        conf = pred.get("confidence", float("nan"))
-        boxes.append((cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2, conf))
-    return boxes
+    """Open-vocabulary detection via Roboflow-hosted YOLO-World -> (x1,y1,x2,y2,conf)."""
+    import supervision as sv
+
+    results = client.infer_from_yolo_world(
+        inference_input=[str(frame_path)],
+        class_names=class_names,
+        model_version=model_version,
+        confidence=confidence,
+    )
+    detections = sv.Detections.from_inference(results[0])
+    if len(detections) == 0:
+        return []
+    return [
+        (x1, y1, x2, y2, float(conf))
+        for (x1, y1, x2, y2), conf in zip(detections.xyxy.tolist(), detections.confidence.tolist())
+    ]
 
 
 def draw_boxes(frame: np.ndarray, boxes: list[tuple[float, float, float, float, float]], color) -> np.ndarray:
@@ -87,9 +99,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--video", required=True, type=Path)
     parser.add_argument("--num-frames", type=int, default=8)
-    parser.add_argument("--roboflow-model-id", required=True,
-                         help="e.g. crowdhuman-nur7g/3 -- Roboflow Universe project-slug/version")
     parser.add_argument("--yolo-model", default="yolov8n-pose.pt")
+    parser.add_argument("--roboflow-classes", nargs="+", default=["person"])
+    parser.add_argument("--roboflow-model-version", default="v2-s",
+                         choices=["s", "m", "l", "x", "v2-s", "v2-m", "v2-l", "v2-x"])
+    parser.add_argument("--roboflow-confidence", type=float, default=0.1)
     args = parser.parse_args()
 
     api_key = os.environ.get("ROBOFLOW_API_KEY")
@@ -117,7 +131,9 @@ def main() -> None:
             tmp_path = Path(tmpdir) / f"frame_{frame_idx}.png"
             cv2.imwrite(str(tmp_path), frame)
             try:
-                rf_boxes = detect_roboflow(tmp_path, rf_client, args.roboflow_model_id)
+                rf_boxes = detect_roboflow(
+                    tmp_path, rf_client, args.roboflow_classes, args.roboflow_model_version, args.roboflow_confidence
+                )
             except Exception as exc:  # noqa: BLE001 -- surface any Roboflow API error, keep comparing other frames
                 print(f"  Roboflow inference failed for frame {frame_idx}: {exc}")
                 rf_boxes = []
