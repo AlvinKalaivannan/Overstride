@@ -22,6 +22,7 @@ cv = [
     "opencv-python",
     "supervision<0.30",  # ByteTrack (used as-is) is slated for removal in 0.30
     "ezc3d",
+    "inference-sdk",  # Roboflow-hosted model inference (scripts/compare_person_detectors.py)
 ]
 dev = [
     "pytest",
