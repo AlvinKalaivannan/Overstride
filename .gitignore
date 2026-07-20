@@ -4,6 +4,8 @@ data/interim/
 data/processed/
 models/*.pt
 models/*.pkl
+models/*.task
+*.mkv
 *.mp4
 *.mov
 
