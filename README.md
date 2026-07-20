@@ -83,10 +83,10 @@ Raw session logs are aggregated into a 22-feature weekly vector, plus week-over-
 ### Stage 3 — Biomechanical deviation *(unsupervised)*
 
 - Athlete submits running footage periodically (lower cadence than session logs — filming has real friction)
-- Pose estimation → joint angles, stride asymmetry, ground-contact time, hip extension, cadence
+- Pose estimation → joint angles, stride asymmetry, ground-contact time, hip extension, cadence, arm swing, torso lean, overstriding
 - Build per-athlete kinematic baseline from prior footage
 - Mahalanobis distance on kinematic features → anomaly score
-- Interpreted against literature-established risk markers: overstriding, knee valgus, contact-time asymmetry
+- Interpreted against literature-established risk markers where side-view footage makes them computable: overstriding, contact-time asymmetry. (Knee valgus is a known risk marker too, but needs frontal-plane camera footage this pipeline doesn't currently capture.)
 
 No injury-labeled biomechanics dataset exists to calibrate this against, so the output is a **flag, not a probability**. The mechanism is grounded — anomalous biomechanics are established precursors to overuse injuries (shin splints, IT band, stress fractures) — but the specific deviation-to-risk mapping is not something this project has validated.
 
@@ -94,7 +94,7 @@ No injury-labeled biomechanics dataset exists to calibrate this against, so the 
 
 ```
 Training-load risk:      63%  ↑  driven by rel_total_km_week_0_2
-Biomechanical anomaly:   FLAG    elevated knee valgus, right-side asymmetry
+Biomechanical anomaly:   FLAG    elevated overstriding, right-side asymmetry
 ```
 
 ### Stage 5 — Self-improving baseline
@@ -126,7 +126,7 @@ Split **by athlete**, not by week. Random week-level splits leak the same athlet
 | **Fukuchi et al. running biomechanics** — 28 runners, 3D mocap | Baseline reference | ❌ | [Figshare](https://doi.org/10.6084/m9.figshare.4543435) |
 | **AthleticsPose** — 23 athletes, 8 synced cameras, real track events | Validate pose-extraction accuracy | n/a | [arXiv](https://arxiv.org/html/2507.12905v1) |
 | **ASPset-510** — 330k frames, outdoor sports, 3D keypoints | Validate pose-extraction accuracy | n/a | — |
-| Own / marathon footage | Population baseline + target-athlete footage | n/a | user-sourced |
+| Own / marathon footage | Population baseline + target-athlete footage | n/a | user-sourced, or `scripts/scrape_footage.py` |
 
 All are publicly accessible. None require institutional credentials.
 
@@ -149,9 +149,6 @@ All are publicly accessible. None require institutional credentials.
 | Data & stats | Python, pandas, NumPy, SciPy (Mahalanobis), scikit-learn |
 | Pose estimation | MediaPipe (single-person) / YOLO-pose (multi-person) |
 | Tracking | ByteTrack — single continuous shot only |
-| CV platform | Roboflow (Public tier) |
-
-> **Note on Roboflow's free tier:** datasets and models are public on Roboflow Universe. Fine for public research data — worth revisiting if private athlete footage is ever involved.
 
 ---
 
